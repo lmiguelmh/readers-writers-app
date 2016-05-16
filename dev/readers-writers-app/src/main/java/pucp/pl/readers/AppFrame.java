@@ -7,6 +7,8 @@ package pucp.pl.readers;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.DefaultListModel;
 
 /**
@@ -18,11 +20,15 @@ public class AppFrame extends javax.swing.JFrame {
     DefaultListModel readersListModel;
     DefaultListModel writersListModel;
     DefaultListModel resourceListModel;
-    
+
     List<AppReader> readers;
     List<AppWriter> writers;
     AppResource resource;
     
+    Semaphore mx;
+    Semaphore wrt;
+    AtomicInteger ctr;
+
     /**
      * Creates new form AppFrame
      */
@@ -35,14 +41,15 @@ public class AppFrame extends javax.swing.JFrame {
         this.writersList.setModel(writersListModel);
         this.resourceListModel = new DefaultListModel();
         this.resourceList.setModel(resourceListModel);
-        
+
         resource = new AppResource(resourceListModel);
         readers = new ArrayList<>();
         writers = new ArrayList<>();
-        
-        AppWriter writer = new AppWriter(resource, writersListModel);
-        writer.start();
-        writers.add(writer);
+
+        // Inicialization for simple solution proposed by Curtois
+        mx = new Semaphore(1);
+        wrt = new Semaphore(1);
+        ctr = new AtomicInteger(0);
     }
 
     /**
@@ -75,7 +82,7 @@ public class AppFrame extends javax.swing.JFrame {
         delReader = new javax.swing.JButton();
         jPanel18 = new javax.swing.JPanel();
         jLabel5 = new javax.swing.JLabel();
-        jTextField1 = new javax.swing.JTextField();
+        readersSleepTime = new javax.swing.JTextField();
         jPanel7 = new javax.swing.JPanel();
         jPanel11 = new javax.swing.JPanel();
         jLabel3 = new javax.swing.JLabel();
@@ -90,8 +97,19 @@ public class AppFrame extends javax.swing.JFrame {
         jScrollPane3 = new javax.swing.JScrollPane();
         writersList = new javax.swing.JList<>();
         jPanel16 = new javax.swing.JPanel();
+        jPanel20 = new javax.swing.JPanel();
+        jButton3 = new javax.swing.JButton();
+        jButton4 = new javax.swing.JButton();
+        jPanel21 = new javax.swing.JPanel();
+        jLabel6 = new javax.swing.JLabel();
+        writersSleepTime = new javax.swing.JTextField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
 
         jLabel1.setText("Readers - Writers Problem");
         jPanel1.add(jLabel1);
@@ -155,9 +173,9 @@ public class AppFrame extends javax.swing.JFrame {
         jLabel5.setText("timeout");
         jPanel18.add(jLabel5);
 
-        jTextField1.setColumns(4);
-        jTextField1.setText("500");
-        jPanel18.add(jTextField1);
+        readersSleepTime.setColumns(4);
+        readersSleepTime.setText("500");
+        jPanel18.add(readersSleepTime);
 
         jPanel15.add(jPanel18);
 
@@ -207,6 +225,31 @@ public class AppFrame extends javax.swing.JFrame {
         jPanel14.add(jScrollPane3, java.awt.BorderLayout.CENTER);
 
         jPanel8.add(jPanel14, java.awt.BorderLayout.CENTER);
+
+        jPanel16.setLayout(new javax.swing.BoxLayout(jPanel16, javax.swing.BoxLayout.Y_AXIS));
+
+        jButton3.setText("+");
+        jButton3.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton3ActionPerformed(evt);
+            }
+        });
+        jPanel20.add(jButton3);
+
+        jButton4.setText("-");
+        jPanel20.add(jButton4);
+
+        jPanel16.add(jPanel20);
+
+        jLabel6.setText("timeout");
+        jPanel21.add(jLabel6);
+
+        writersSleepTime.setColumns(4);
+        writersSleepTime.setText("500");
+        jPanel21.add(writersSleepTime);
+
+        jPanel16.add(jPanel21);
+
         jPanel8.add(jPanel16, java.awt.BorderLayout.PAGE_END);
 
         jPanel5.add(jPanel8);
@@ -223,10 +266,46 @@ public class AppFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_addReaderActionPerformed
 
     private void addReaderMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_addReaderMouseClicked
-        AppReader reader = new AppReader(resource, readersListModel);
-        reader.start();
+        AppReader reader = new AppReader("reader" + (readers.size() + 1), resource, readersListModel);
+        reader.setCtr(ctr);
+        reader.setMx(mx);
+        reader.setWrt(wrt);
+        Integer sleepTime;
+        try {
+            sleepTime = Integer.valueOf(readersSleepTime.getText());
+        }catch(Exception e) {
+            sleepTime = 1000;
+        }
+        reader.setSleepTime(sleepTime);
+        reader.start();    
         readers.add(reader);
     }//GEN-LAST:event_addReaderMouseClicked
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        for(AppReader r : readers) {
+            r.setStop(true);
+        }
+        
+        for(AppWriter w : writers) {
+            w.setStop(true);
+        }
+    }//GEN-LAST:event_formWindowClosing
+
+    private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
+        AppWriter writer = new AppWriter("writer" + (writers.size() + 1), resource, writersListModel);
+        writer.setCtr(ctr);
+        writer.setMx(mx);
+        writer.setWrt(wrt);
+        Integer sleepTime;
+        try {
+            sleepTime = Integer.valueOf(writersSleepTime.getText());
+        } catch (Exception e) {
+            sleepTime = 1000;
+        }
+        writer.setSleepTime(sleepTime);
+        writer.start();
+        writers.add(writer);
+    }//GEN-LAST:event_jButton3ActionPerformed
 
     /**
      * @param args the command line arguments
@@ -268,11 +347,14 @@ public class AppFrame extends javax.swing.JFrame {
     private javax.swing.JButton delReader;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
+    private javax.swing.JButton jButton3;
+    private javax.swing.JButton jButton4;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel6;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel10;
     private javax.swing.JPanel jPanel11;
@@ -285,6 +367,8 @@ public class AppFrame extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel18;
     private javax.swing.JPanel jPanel19;
     private javax.swing.JPanel jPanel2;
+    private javax.swing.JPanel jPanel20;
+    private javax.swing.JPanel jPanel21;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
@@ -295,10 +379,11 @@ public class AppFrame extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
-    private javax.swing.JTextField jTextField1;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JList<String> readersList;
+    private javax.swing.JTextField readersSleepTime;
     private javax.swing.JList<String> resourceList;
     private javax.swing.JList<String> writersList;
+    private javax.swing.JTextField writersSleepTime;
     // End of variables declaration//GEN-END:variables
 }

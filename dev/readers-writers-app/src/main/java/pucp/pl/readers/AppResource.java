@@ -13,10 +13,13 @@ import javax.swing.ListModel;
  * @author adun
  */
 public class AppResource {
-    ListModel model;
+    DefaultListModel model;
 
     AppResource(DefaultListModel resourceListModel) {
         this.model = resourceListModel;
     }
-    
+
+    public DefaultListModel getModel() {
+        return model;
+    }
 }
