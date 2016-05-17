@@ -20,9 +20,7 @@ public class AppWriter extends Thread {
     DefaultListModel model;
     AppResource resource;
 
-    Semaphore mx;
-    Semaphore wrt;
-    AtomicInteger ctr;
+    Semaphore writerMutex;
 
     boolean stop;
     int sleepTime;
@@ -36,16 +34,8 @@ public class AppWriter extends Thread {
         log("added");
     }
 
-    public void setMx(Semaphore mx) {
-        this.mx = mx;
-    }
-
-    public void setWrt(Semaphore wrt) {
-        this.wrt = wrt;
-    }
-
-    public void setCtr(AtomicInteger ctr) {
-        this.ctr = ctr;
+    public void setWriterMutex(Semaphore writerMutex) {
+        this.writerMutex = writerMutex;
     }
 
     public void setStop(boolean stop) {
@@ -62,7 +52,7 @@ public class AppWriter extends Thread {
 
     @Override
     public synchronized void start() {
-        if (mx == null || wrt == null || ctr == null) {
+        if (writerMutex == null) {
             throw new IllegalStateException("initialize mx, wrt and/or ctr");
         }
         super.start(); //To change body of generated methods, choose Tools | Templates.
@@ -70,7 +60,7 @@ public class AppWriter extends Thread {
 
     private void process() throws InterruptedException {
         while (!stop) {
-            wrt.acquire();
+            writerMutex.acquire();
 
             //[Critical Section]
             Object obj = ThreadLocalRandom.current().nextInt(1, 100 + 1);
@@ -78,7 +68,7 @@ public class AppWriter extends Thread {
             log(obj + " added");
             //[Critical Section]
 
-            wrt.release();
+            writerMutex.release();
 
             Thread.sleep(sleepTime);
         }

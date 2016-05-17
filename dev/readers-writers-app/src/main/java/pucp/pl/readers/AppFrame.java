@@ -5,6 +5,7 @@
  */
 package pucp.pl.readers;
 
+import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
@@ -25,9 +26,9 @@ public class AppFrame extends javax.swing.JFrame {
     List<AppWriter> writers;
     AppResource resource;
     
-    Semaphore mx;
-    Semaphore wrt;
-    AtomicInteger ctr;
+    Semaphore readerMutex;
+    Semaphore writerMutex;
+    AtomicInteger readersCount;
 
     /**
      * Creates new form AppFrame
@@ -47,9 +48,9 @@ public class AppFrame extends javax.swing.JFrame {
         writers = new ArrayList<>();
 
         // Inicialization for simple solution proposed by Curtois
-        mx = new Semaphore(1);
-        wrt = new Semaphore(1);
-        ctr = new AtomicInteger(0);
+        readerMutex = new Semaphore(1);
+        writerMutex = new Semaphore(1);
+        readersCount = new AtomicInteger(0);
     }
 
     /**
@@ -64,8 +65,8 @@ public class AppFrame extends javax.swing.JFrame {
         jPanel1 = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
         jPanel2 = new javax.swing.JPanel();
-        jButton1 = new javax.swing.JButton();
-        jButton2 = new javax.swing.JButton();
+        aceptar = new javax.swing.JButton();
+        cancelar = new javax.swing.JButton();
         mainPanel = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
         jPanel4 = new javax.swing.JPanel();
@@ -98,29 +99,41 @@ public class AppFrame extends javax.swing.JFrame {
         writersList = new javax.swing.JList<>();
         jPanel16 = new javax.swing.JPanel();
         jPanel20 = new javax.swing.JPanel();
-        jButton3 = new javax.swing.JButton();
-        jButton4 = new javax.swing.JButton();
+        addWriter = new javax.swing.JButton();
+        delWriter = new javax.swing.JButton();
         jPanel21 = new javax.swing.JPanel();
         jLabel6 = new javax.swing.JLabel();
         writersSleepTime = new javax.swing.JTextField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setPreferredSize(new java.awt.Dimension(640, 480));
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
             }
         });
 
+        jLabel1.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
         jLabel1.setText("Readers - Writers Problem");
         jPanel1.add(jLabel1);
 
         getContentPane().add(jPanel1, java.awt.BorderLayout.PAGE_START);
 
-        jButton1.setText("Aceptar");
-        jPanel2.add(jButton1);
+        aceptar.setText("Aceptar");
+        aceptar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                aceptarActionPerformed(evt);
+            }
+        });
+        jPanel2.add(aceptar);
 
-        jButton2.setText("Cancelar");
-        jPanel2.add(jButton2);
+        cancelar.setText("Cancelar");
+        cancelar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cancelarActionPerformed(evt);
+            }
+        });
+        jPanel2.add(cancelar);
 
         getContentPane().add(jPanel2, java.awt.BorderLayout.PAGE_END);
 
@@ -152,7 +165,7 @@ public class AppFrame extends javax.swing.JFrame {
 
         jPanel15.setLayout(new javax.swing.BoxLayout(jPanel15, javax.swing.BoxLayout.Y_AXIS));
 
-        addReader.setText("+");
+        addReader.setText("Agregar");
         addReader.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 addReaderMouseClicked(evt);
@@ -165,7 +178,12 @@ public class AppFrame extends javax.swing.JFrame {
         });
         jPanel17.add(addReader);
 
-        delReader.setText("-");
+        delReader.setText("Eliminar");
+        delReader.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                delReaderActionPerformed(evt);
+            }
+        });
         jPanel17.add(delReader);
 
         jPanel15.add(jPanel17);
@@ -174,7 +192,7 @@ public class AppFrame extends javax.swing.JFrame {
         jPanel18.add(jLabel5);
 
         readersSleepTime.setColumns(4);
-        readersSleepTime.setText("500");
+        readersSleepTime.setText("1000");
         jPanel18.add(readersSleepTime);
 
         jPanel15.add(jPanel18);
@@ -228,16 +246,16 @@ public class AppFrame extends javax.swing.JFrame {
 
         jPanel16.setLayout(new javax.swing.BoxLayout(jPanel16, javax.swing.BoxLayout.Y_AXIS));
 
-        jButton3.setText("+");
-        jButton3.addActionListener(new java.awt.event.ActionListener() {
+        addWriter.setText("Agregar");
+        addWriter.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton3ActionPerformed(evt);
+                addWriterActionPerformed(evt);
             }
         });
-        jPanel20.add(jButton3);
+        jPanel20.add(addWriter);
 
-        jButton4.setText("-");
-        jPanel20.add(jButton4);
+        delWriter.setText("Eliminar");
+        jPanel20.add(delWriter);
 
         jPanel16.add(jPanel20);
 
@@ -245,7 +263,7 @@ public class AppFrame extends javax.swing.JFrame {
         jPanel21.add(jLabel6);
 
         writersSleepTime.setColumns(4);
-        writersSleepTime.setText("500");
+        writersSleepTime.setText("1000");
         jPanel21.add(writersSleepTime);
 
         jPanel16.add(jPanel21);
@@ -267,9 +285,9 @@ public class AppFrame extends javax.swing.JFrame {
 
     private void addReaderMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_addReaderMouseClicked
         AppReader reader = new AppReader("reader" + (readers.size() + 1), resource, readersListModel);
-        reader.setCtr(ctr);
-        reader.setMx(mx);
-        reader.setWrt(wrt);
+        reader.setReadersCount(readersCount);
+        reader.setReaderMutex(readerMutex);
+        reader.setWriterMutex(writerMutex);
         Integer sleepTime;
         try {
             sleepTime = Integer.valueOf(readersSleepTime.getText());
@@ -284,18 +302,15 @@ public class AppFrame extends javax.swing.JFrame {
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         for(AppReader r : readers) {
             r.setStop(true);
-        }
-        
+        }        
         for(AppWriter w : writers) {
             w.setStop(true);
         }
     }//GEN-LAST:event_formWindowClosing
 
-    private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
+    private void addWriterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addWriterActionPerformed
         AppWriter writer = new AppWriter("writer" + (writers.size() + 1), resource, writersListModel);
-        writer.setCtr(ctr);
-        writer.setMx(mx);
-        writer.setWrt(wrt);
+        writer.setWriterMutex(writerMutex);
         Integer sleepTime;
         try {
             sleepTime = Integer.valueOf(writersSleepTime.getText());
@@ -305,7 +320,22 @@ public class AppFrame extends javax.swing.JFrame {
         writer.setSleepTime(sleepTime);
         writer.start();
         writers.add(writer);
-    }//GEN-LAST:event_jButton3ActionPerformed
+    }//GEN-LAST:event_addWriterActionPerformed
+
+    private void delReaderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_delReaderActionPerformed
+        if(readers.size() > 0) {
+            AppReader r = readers.remove(readers.size()-1);
+            r.setStop(true);
+        }
+    }//GEN-LAST:event_delReaderActionPerformed
+
+    private void cancelarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelarActionPerformed
+        this.dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
+    }//GEN-LAST:event_cancelarActionPerformed
+
+    private void aceptarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_aceptarActionPerformed
+        this.dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
+    }//GEN-LAST:event_aceptarActionPerformed
 
     /**
      * @param args the command line arguments
@@ -317,12 +347,15 @@ public class AppFrame extends javax.swing.JFrame {
          * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
          */
         try {
+            /*
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
                     javax.swing.UIManager.setLookAndFeel(info.getClassName());
                     break;
                 }
             }
+            */
+            javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
         } catch (ClassNotFoundException ex) {
             java.util.logging.Logger.getLogger(AppFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
@@ -337,18 +370,20 @@ public class AppFrame extends javax.swing.JFrame {
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new AppFrame().setVisible(true);
+                AppFrame appFrame = new AppFrame();
+                appFrame.setLocationRelativeTo(null);
+                appFrame.setVisible(true);
             }
         });
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton aceptar;
     private javax.swing.JButton addReader;
+    private javax.swing.JButton addWriter;
+    private javax.swing.JButton cancelar;
     private javax.swing.JButton delReader;
-    private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton2;
-    private javax.swing.JButton jButton3;
-    private javax.swing.JButton jButton4;
+    private javax.swing.JButton delWriter;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
